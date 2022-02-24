@@ -9,9 +9,12 @@ fn main() {
 
     let mut mode = String::new();
 
-    io::stdin()
+    let stdin = io::stdin();
+    stdin
         .read_line(&mut mode)
         .expect("Could not read Temperature unit");
+
+    let mode = mode.trim();
 
     let mode: Temperature = if mode == "f" || mode == "F" {
         Temperature::Fahrenheit
@@ -19,13 +22,13 @@ fn main() {
         Temperature::Celsius
     };
 
-    print_unit(mode);
+    // print_unit(&mode);
 
     println!("Enter a temperature in {}: ", mode);
 
     let mut temp = String::new();
 
-    io::stdin()
+    stdin
         .read_line(&mut temp)
         .expect("Could not read temp");
 
@@ -65,7 +68,7 @@ fn fahr_to_cels(f: f64) -> f64 {
     (f - 32.0) * 5.0 / 9.0
 }
 
-fn print_unit(t: Temperature) {
+fn print_unit(t: &Temperature) {
     match t {
         Temperature::Celsius => println!("Current unit is Celsius"),
         _ => println!("Current unit is Fahrenheit"),
