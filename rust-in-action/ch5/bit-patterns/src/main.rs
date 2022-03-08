@@ -16,11 +16,11 @@ fn main() {
 
     let frankentype: u32 = unsafe { std::mem::transmute(a) };
 
-    println!("{}", frankentype);
-    println!("{:032b}", frankentype);
+    println!("frankentype: {}", frankentype);
+    println!("frankentype: {:032b}", frankentype);
 
     let b: f32 = unsafe { std::mem::transmute(frankentype) };
-    println!("{}", b);
+    println!("b: {}", b);
     assert_eq!(a, b);
 
     // ----------------------------------------------
