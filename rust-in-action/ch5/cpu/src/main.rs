@@ -13,14 +13,18 @@ fn main() {
     let mem = &mut cpu.memory;
 
     // call the function at 0x100
-    mem[0x000] = 0x21; mem[0x001] = 0x00;
-    mem[0x002] = 0x21; mem[0x003] = 0x00;
-    mem[0x004] = 0x00; mem[0x005] = 0x00;
+    mem[0x000] = 0x21;
+    mem[0x001] = 0x00;
+    mem[0x002] = 0x21;
+    mem[0x003] = 0x00;
 
     // function definition
-    mem[0x100] = 0x80; mem[0x101] = 0x14;
-    mem[0x102] = 0x80; mem[0x103] = 0x14;
-    mem[0x104] = 0x00; mem[0x105] = 0xEE;
+    mem[0x100] = 0x80;
+    mem[0x101] = 0x14;
+    mem[0x102] = 0x80;
+    mem[0x103] = 0x14;
+    mem[0x104] = 0x00;
+    mem[0x105] = 0xEE;
 
     cpu.run();
 
@@ -51,24 +55,84 @@ impl CPU {
             let opcode = self.read_opcode();
             self.position_in_memory += 2;
 
-            let c = ((opcode & 0xF000) >> 12) as u8;
             let x = ((opcode & 0x0F00) >> 8) as u8;
             let y = ((opcode & 0x00F0) >> 4) as u8;
-            let d = ((opcode & 0x000F) >> 0) as u8;
+            let kk = (opcode & 0x00FF) as u8; // low byte both nibbles
+            let op_minor = (opcode & 0x000F) as u8;
 
-            let nnn = opcode & 0x0FFF;
-            // let kk = opcode & 0x00FF;
+            let addr = opcode & 0x0FFF;
 
-            match (c, x, y, d) {
-                (0, 0, 0, 0) => {
+            match opcode {
+                0x0000 => {
                     return;
                 }
-                (0, 0, 0xE, 0xE) => self.ret(),
-                (0x2, _, _, _) => self.call(nnn),
-                (0x8, _, _, 0x4) => self.add_xy(x, y),
+                0x00E0 => { /* CLEAR SCREEN */ }
+                0x00EE => {
+                    self.ret();
+                }
+                0x1000..=0x1FFF => {
+                    self.jmp(addr);
+                }
+                0x2000..=0x2FFF => {
+                    self.call(addr);
+                }
+                0x3000..=0x3FFF => {
+                    self.se(x, kk);
+                }
+                0x4000..=0x4FFF => {
+                    self.sne(x, kk);
+                }
+                0x5000..=0x5FFF => {
+                    self.se(x, y);
+                }
+                0x6000..=0x6FFF => {
+                    self.ld(x, kk);
+                }
+                0x7000..=0x7FFF => {
+                    self.add(x, kk);
+                }
+                0x8000..=0x8FFF => match op_minor {
+                    0 => self.ld(x, self.registers[y as usize]),
+                    1 => self.or_xy(x, y),
+                    2 => self.and_xy(x, y),
+                    3 => self.xor_xy(x, y),
+                    4 => {
+                        self.add_xy(x, y);
+                    }
+                    _ => todo!("opcode {:04x}", opcode),
+                },
                 _ => todo!("opcode {:04x}", opcode),
             }
         }
+    }
+
+    // (6xkk) LS sets the value kk into register vx
+    fn ld(&mut self, vx: u8, kk: u8) {
+        self.registers[vx as usize] = kk;
+    }
+
+    // (7xkk) Add sets the value kk into register vx
+    fn add(&mut self, vx: u8, kk: u8) {
+        self.registers[vx as usize] += kk;
+    }
+
+    // Store if equal
+    fn se(&mut self, vx: u8, kk: u8) {
+        if vx == kk {
+            self.position_in_memory += 2;
+        }
+    }
+
+    /// () Store if Not Equal
+    fn sne(&mut self, vx: u8, kk: u8) {
+        if vx != kk {
+            self.position_in_memory += 2;
+        }
+    }
+
+    /// (1nnn) JUMP to addr
+    fn jmp(&mut self, addr: u16) {
+        self.position_in_memory = addr as usize;
     }
 
     fn call(&mut self, addr: u16) {
@@ -84,6 +148,7 @@ impl CPU {
         self.position_in_memory = addr as usize;
     }
 
+    /// (00EE) RET return from the current function
     fn ret(&mut self) {
         if self.stack_pointer == 0 {
             panic!("Stack underflow")
@@ -107,5 +172,27 @@ impl CPU {
         } else {
             self.registers[0xF] = 0;
         }
+    }
+
+    /// (7xkk)
+    fn and_xy(&mut self, x: u8, y: u8) {
+        let x_ = self.registers[x as usize];
+        let y_ = self.registers[y as usize];
+
+        self.registers[x as usize] = x_ & y_;
+    }
+
+    fn or_xy(&mut self, x: u8, y: u8) {
+        let x_ = self.registers[x as usize];
+        let y_ = self.registers[y as usize];
+
+        self.registers[x as usize] = x_ | y_;
+    }
+
+    fn xor_xy(&mut self, x: u8, y: u8) {
+        let x_ = self.registers[x as usize];
+        let y_ = self.registers[y as usize];
+
+        self.registers[x as usize] = x_ ^ y_;
     }
 }
